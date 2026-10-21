@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对话拼图 · 王丽与巴丽娜</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei","Noto Sans Lao",sans-serif;
+    background:#e8eefb;
+    color:#22345a;
+    min-height:100vh;
+    padding:16px 12px 40px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  header{text-align:center;margin-bottom:14px}
+  h1{font-size:21px;letter-spacing:1px}
+  .sub{font-size:13px;color:#5f7cb0;margin-top:6px}
+
+  .toolbar{
+    max-width:860px;margin:0 auto 16px;
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;
+  }
+  .stat{
+    font-size:14px;color:#4a6a9e;background:#fff;border-radius:999px;
+    padding:8px 16px;border:2px solid #d9e3f7;
+  }
+  button{
+    font-family:inherit;font-size:15px;padding:9px 20px;border-radius:999px;
+    border:2px solid #cfdcf3;background:#fff;color:#22345a;
+    cursor:pointer;font-weight:600;
+  }
+  button:hover{background:#f3f8ff}
+
+  .stage{
+    position:relative;
+    max-width:860px;
+    margin:0 auto;
+    height:86vh;
+    min-height:620px;
+    max-height:900px;
+    border-radius:26px;
+    overflow:hidden;
+    box-shadow:0 20px 50px -18px rgba(45,80,150,.45), 0 0 0 6px #fff, 0 0 0 8px #dbe6f8;
+    background:#ffe8d2;
+  }
+  .cat{position:absolute;top:0;left:0;width:100%;height:100%;display:block}
+
+  .strips{
+    position:absolute;top:0;left:0;right:0;bottom:0;
+    display:flex;flex-direction:column;
+    z-index:2;
+  }
+  .strip{
+    flex:1 1 0;
+    min-height:0;
+    position:relative;
+    display:flex;align-items:center;
+    padding:0 20px;
+    background:#ffffff;
+    cursor:pointer;
+    overflow:hidden;
+    transition:background .5s ease, box-shadow .18s ease;
+    user-select:none;
+  }
+  .strip:hover{background:#fbfdff}
+  .strip.selected{
+    background:#eef5ff;
+    box-shadow:inset 0 0 0 3px #4a74d8;
+    z-index:3;
+  }
+  .strip.solved{
+    background:transparent;
+    cursor:default;
+    box-shadow:none;
+  }
+  .strip.solved:hover{background:transparent}
+
+  .tag{
+    flex:0 0 auto;
+    font-size:12px;font-weight:700;
+    padding:3px 9px;border-radius:8px;
+    margin-right:10px;
+    white-space:nowrap;
+  }
+  .tag.wang{background:#e2ecff;color:#2f5bc4}
+  .tag.bali{background:#ffeee0;color:#b8631f}
+  .strip.solved .tag{background:rgba(255,255,255,.75)}
+
+  .text{
+    font-size:15px;
+    line-height:1.35;
+    color:#22345a;
+    min-width:0;
+  }
+  .strip.solved .text{
+    color:#1b2c4d;
+    text-shadow:0 0 8px #fff, 0 0 16px #fff;
+  }
+
+  .done-banner{
+    position:absolute;
+    left:50%;top:50%;
+    margin-left:-160px;
+    margin-top:-30px;
+    width:320px;
+    background:rgba(255,255,255,.94);
+    padding:18px 0;
+    border-radius:20px;
+    font-size:18px;font-weight:700;
+    color:#2b7a4b;
+    text-align:center;
+    opacity:0;pointer-events:none;
+    transition:.4s;
+    z-index:9;
+  }
+  .done-banner.show{opacity:1}
+
+  .toast{
+    position:fixed;left:50%;bottom:22px;
+    margin-left:-100px;
+    width:200px;
+    background:#22345a;color:#fff;
+    padding:11px 0;
+    border-radius:999px;
+    font-size:14px;text-align:center;
+    opacity:0;pointer-events:none;
+    transition:.3s;z-index:99;
+  }
+  .toast.show{opacity:1}
+
+  @media (max-width:520px){
+    h1{font-size:18px}
+    .stat,button{font-size:13px;padding:7px 14px}
+    .strip{padding:0 10px}
+    .text{font-size:12px}
+    .tag{font-size:11px;padding:2px 6px;margin-right:6px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🐱 对话拼图</h1>
+  <div class="sub">点击两条横条交换位置 · 排对一句，白色横条就消失一点</div>
+</header>
+
+<div class="toolbar">
+  <span class="stat">步数 <span id="moves">0</span></span>
+  <span class="stat"><span id="progress">0 / 12</span></span>
+  <button id="btnShuffle">重新打乱</button>
+</div>
+
+<div class="stage">
+  <svg class="cat" viewBox="0 0 800 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#ffe9d5"/>
+        <stop offset="50%" stop-color="#ffd8bd"/>
+        <stop offset="100%" stop-color="#fcc8a7"/>
+      </linearGradient>
+      <radialGradient id="halo" cx="50%" cy="46%" r="58%">
+        <stop offset="0%" stop-color="#fffaf4" stop-opacity=".95"/>
+        <stop offset="100%" stop-color="#fffaf4" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect width="800" height="900" fill="url(#bgGrad)"/>
+    <rect width="800" height="900" fill="url(#halo)"/>
+    <g fill="#e08a5c" opacity=".22">
+      <circle cx="118" cy="168" r="23"/><circle cx="88" cy="134" r="12"/><circle cx="124" cy="118" r="12"/><circle cx="160" cy="136" r="12"/><circle cx="152" cy="176" r="11"/>
+      <circle cx="690" cy="760" r="26"/><circle cx="656" cy="722" r="13"/><circle cx="696" cy="704" r="13"/><circle cx="736" cy="724" r="13"/><circle cx="728" cy="768" r="12"/>
+      <circle cx="700" cy="150" r="17"/><circle cx="676" cy="124" r="9"/><circle cx="706" cy="112" r="9"/><circle cx="734" cy="126" r="9"/>
+    </g>
+    <g>
+      <path d="M205 332 L232 126 L380 250 Z" fill="#f0a05c"/>
+      <path d="M595 332 L568 126 L420 250 Z" fill="#f0a05c"/>
+      <path d="M245 306 L260 188 L348 264 Z" fill="#ffc9ab"/>
+      <path d="M555 306 L540 188 L452 264 Z" fill="#ffc9ab"/>
+      <ellipse cx="400" cy="440" rx="232" ry="202" fill="#f7b173"/>
+      <g stroke="#e28b3f" stroke-width="14" stroke-linecap="round" fill="none" opacity=".9">
+        <path d="M358 272 l-12 50"/><path d="M400 262 l0 56"/><path d="M442 272 l12 50"/>
+      </g>
+      <ellipse cx="248" cy="474" rx="54" ry="32" fill="#ff9d9d" opacity=".5"/>
+      <ellipse cx="552" cy="474" rx="54" ry="32" fill="#ff9d9d" opacity=".5"/>
+      <ellipse cx="318" cy="424" rx="43" ry="51" fill="#3b2a20"/>
+      <ellipse cx="482" cy="424" rx="43" ry="51" fill="#3b2a20"/>
+      <circle cx="304" cy="408" r="15" fill="#fff"/>
+      <circle cx="468" cy="408" r="15" fill="#fff"/>
+      <circle cx="331" cy="446" r="7" fill="#fff" opacity=".8"/>
+      <circle cx="495" cy="446" r="7" fill="#fff" opacity=".8"/>
+      <ellipse cx="400" cy="532" rx="120" ry="86" fill="#fff4e8"/>
+      <path d="M376 502 Q400 486 424 502 Q400 532 376 502 Z" fill="#ef7d8b"/>
+      <path d="M400 520 Q378 556 350 538" fill="none" stroke="#b9662c" stroke-width="9" stroke-linecap="round"/>
+      <path d="M400 520 Q422 556 450 538" fill="none" stroke="#b9662c" stroke-width="9" stroke-linecap="round"/>
+      <g stroke="#c98a52" stroke-width="6" stroke-linecap="round" opacity=".85">
+        <path d="M268 502 L152 476"/><path d="M268 536 L150 542"/>
+        <path d="M532 502 L648 476"/><path d="M532 536 L650 542"/>
+      </g>
+    </g>
+  </svg>
+
+  <div class="strips" id="strips"></div>
+  <div class="done-banner" id="doneBanner">拼好啦！猫咪出来啦~</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DIALOGUE = [
+  {s:"王丽",  t:"巴丽娜，好久不见，最近好吗？"},
+  {s:"巴丽娜",t:"我很好，你呢？"},
+  {s:"王丽",  t:"我也挺好的，你的汉语学得怎么样了？"},
+  {s:"巴丽娜",t:"我学得还可以，可是我的汉语说得不太好。"},
+  {s:"王丽",  t:"你的发音很准，你学汉语学了多长时间了？"},
+  {s:"巴丽娜",t:"我学了半年多了，可是我只会说一些简单的句子。"},
+  {s:"王丽",  t:"我觉得你的汉语说得很流利。"},
+  {s:"巴丽娜",t:"是吗？谢谢你的夸奖。"},
+  {s:"王丽",  t:"你觉得汉语难吗？"},
+  {s:"巴丽娜",t:"我觉得汉语很难，特别是汉字，跟老挝文字完全不一样。"},
+  {s:"王丽",  t:"没关系，只要你多写多练，汉字就没那么难了。"},
+  {s:"巴丽娜",t:"好的，我会努力练习写汉字的。"}
+];
+const N = DIALOGUE.length;
+
+const stripsEl   = document.getElementById('strips');
+const movesEl    = document.getElementById('moves');
+const progressEl = document.getElementById('progress');
+const toastEl    = document.getElementById('toast');
+const doneBanner = document.getElementById('doneBanner');
+
+let order = [], selected = null, els = [], moves = 0, done = false;
+
+function shuffle(a){
+  const arr = a.slice();
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
+function makeOrder(){
+  let arr;
+  do{ arr = shuffle([0,1,2,3,4,5,6,7,8,9,10,11]); }
+  while(arr.some(function(v,i){return v===i;}));
+  return arr;
+}
+function toast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(function(){toastEl.classList.remove('show');},1800);
+}
+
+function build(){
+  stripsEl.innerHTML = '';
+  els = [];
+  for(let i=0;i<N;i++){
+    const el = document.createElement('div');
+    el.className = 'strip';
+    el.innerHTML = '<span class="tag"></span><span class="text"></span>';
+    (function(idx){
+      el.addEventListener('click', function(){ onStripClick(idx); });
+    })(i);
+    stripsEl.appendChild(el);
+    els.push(el);
+  }
+  paint();
+}
+
+function paint(){
+  for(let pos=0; pos<N; pos++){
+    const id = order[pos];
+    const el = els[pos];
+    const d  = DIALOGUE[id];
+    const tag = el.firstChild;
+    const txt = el.lastChild;
+    tag.textContent = d.s;
+    tag.className = 'tag ' + (d.s === '王丽' ? 'wang' : 'bali');
+    txt.textContent = d.t;
+    el.className = 'strip'
+      + (id === pos ? ' solved' : '')
+      + (selected === pos ? ' selected' : '');
+  }
+  let ok = 0;
+  for(let i=0;i<N;i++){ if(order[i]===i) ok++; }
+  progressEl.textContent = ok + ' / ' + N;
+  movesEl.textContent = moves;
+}
+
+function onStripClick(pos){
+  if(done) return;
+  if(order[pos] === pos) return;
+  if(selected === null){ selected = pos; paint(); return; }
+  if(selected === pos){ selected = null; paint(); return; }
+  const a = selected, b = pos;
+  const t = order[a]; order[a] = order[b]; order[b] = t;
+  selected = null; moves++;
+  paint();
+  if(order.every(function(v,i){return v===i;})){
+    done = true;
+    doneBanner.classList.add('show');
+    setTimeout(function(){doneBanner.classList.remove('show');},3200);
+    toast('全部正确！用了 ' + moves + ' 步');
+  }
+}
+
+function reset(){
+  done = false; selected = null; moves = 0;
+  order = makeOrder();
+  doneBanner.classList.remove('show');
+  build();
+  toast('已重新打乱');
+}
+
+document.getElementById('btnShuffle').addEventListener('click', reset);
+
+order = makeOrder();
+build();
+</script>
+</body>
+</html>
